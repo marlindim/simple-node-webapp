@@ -1,0 +1,5 @@
+- run: |
+    aws elasticbeanstalk create-application-version \
+      --application-name ${{ secrets.EB_APPLICATION_NAME }} \
+      --version-label "v-${{ github.run_number }}" \
+      --source-bundle S3Bucket="elasticbeanstalk-${{ secrets.AWS_REGION }}-${{ secrets.AWS_ACCOUNT_ID }}",S3Key="app.zip"
