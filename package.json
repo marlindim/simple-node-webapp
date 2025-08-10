@@ -27,3 +27,7 @@
   ],
   "license": "MIT"
 }
+"scripts": {
+  "start": "node index.js",
+  "test": "echo \"No tests yet\" && exit 0"
+},
