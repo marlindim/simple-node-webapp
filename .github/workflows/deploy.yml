@@ -7,10 +7,18 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+
+      - name: Show current directory
+        run: pwd
+
+      - name: List files in directory
+        run: ls -l
+
+      - name: Show package.json
+        run: cat package.json
 
       - name: Set up Node.js
         uses: actions/setup-node@v3
