@@ -1,9 +1,9 @@
-name: Continuous Deployment to Elastic Beanstalk
+name: CD (Deploy to Elastic Beanstalk)
 
 on:
   push:
     branches:
-      - master  # change to your deploy branch if needed
+      - main   # change if your default branch is different
 
 jobs:
   deploy:
@@ -18,10 +18,19 @@ jobs:
           node-version: '20'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
-      - name: Zip application
-        run: zip -r app.zip .
+      # Optional build step if your app needs it
+      - name: Build application
+        run: npm run build --if-present
+
+      - name: Zip application (exclude unnecessary files)
+        run: |
+          zip -r app.zip . \
+            -x ".git/*" \
+               ".github/*" \
+               "node_modules/*" \
+               "*.zip"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -30,50 +39,12 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Upload app to S3
-        run: |
-          aws s3 cp app.zip s3://elasticbeanstalk-${{ secrets.AWS_ACCOUNT_ID }}-${{ secrets.AWS_REGION }}/app.zip
+      - name: Deploy to Elastic Beanstalk
+        uses: einaregilsson/beanstalk-deploy@v21
+        with:
+          application_name: ${{ secrets.EB_APP_NAME }}
+          environment_name: ${{ secrets.EB_ENV_NAME }}
+          version_label: ${{ github.sha }}
+          region: ${{ secrets.AWS_REGION }}
+          deployment_package: app.zip
 
-      - name: Create new application version and wait until processed
-        run: |
-          VERSION_LABEL="v-${GITHUB_RUN_NUMBER}"
-
-          echo "Creating new application version: $VERSION_LABEL"
-          aws elasticbeanstalk create-application-version \
-            --application-name "${{ secrets.EB_APP_NAME }}" \
-            --version-label "$VERSION_LABEL" \
-            --source-bundle S3Bucket=elasticbeanstalk-${{ secrets.AWS_ACCOUNT_ID }}-${{ secrets.AWS_REGION }},S3Key=app.zip
-
-          echo "Waiting for application version to be processed..."
-          for i in {1..15}; do
-            STATUS=$(aws elasticbeanstalk describe-application-versions \
-              --application-name "${{ secrets.EB_APP_NAME }}" \
-              --version-label "$VERSION_LABEL" \
-              --query "ApplicationVersions[0].Status" --output text)
-
-            echo "Status: $STATUS"
-
-            if [ "$STATUS" = "PROCESSED" ]; then
-              echo "✅ Application version processed successfully!"
-              break
-            fi
-
-            if [ "$STATUS" = "FAILED" ]; then
-              echo "❌ Application version processing failed."
-              exit 1
-            fi
-
-            sleep 10
-          done
-
-          if [ "$STATUS" != "PROCESSED" ]; then
-            echo "⏳ Timed out waiting for application version to be processed."
-            exit 1
-          fi
-
-      - name: Update environment
-        run: |
-          VERSION_LABEL="v-${GITHUB_RUN_NUMBER}"
-          aws elasticbeanstalk update-environment \
-            --environment-name "${{ secrets.EB_ENV_NAME }}" \
-            --version-label "$VERSION_LABEL"
