@@ -1,21 +1,23 @@
 {
-  "name": "node-js-sample",
+  "name": "js-sample",
   "version": "0.2.0",
   "description": "A sample Node.js app using Express 4",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "test": "echo \"No tests yet\" && exit 0"
+  "start": "node index.js",
+  "test": "echo \"No tests yet\" && exit 0"
+}
+
   },
   "dependencies": {
-    "express": "^4.13.3"
+    "express": "^4.21.2"
   },
   "engines": {
     "node": "22.x"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/heroku/node-js-sample"
+    "url": "git+https://github.com/heroku/node-js-sample.git"
   },
   "keywords": [
     "node",
@@ -26,6 +28,9 @@
   "contributors": [
     "Zeke Sikelianos <zeke@sikelianos.com> (http://zeke.sikelianos.com)"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/heroku/node-js-sample/issues"
+  },
+  "homepage": "https://github.com/heroku/node-js-sample#readme"
 }
-
