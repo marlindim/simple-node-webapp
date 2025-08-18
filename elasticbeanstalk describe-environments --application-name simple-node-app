@@ -1,0 +1,46 @@
+{
+    "Applications": [
+        {
+            "ApplicationArn": "arn:aws:elasticbeanstalk:us-east-1:977684303906:application/simple-node-app",
+            "ApplicationName": "simple-node-app",
+            "DateCreated": "2025-08-18T14:45:27.369000+00:00",
+            "DateUpdated": "2025-08-18T14:45:27.369000+00:00",
+            "ConfigurationTemplates": [],
+            "ResourceLifecycleConfig": {
+                "VersionLifecycleConfig": {
+                    "MaxCountRule": {
+                        "Enabled": false,
+                        "MaxCount": 200,
+                        "DeleteSourceFromS3": false
+                    },
+                    "MaxAgeRule": {
+                        "Enabled": false,
+                        "MaxAgeInDays": 180,
+                        "DeleteSourceFromS3": false
+                    }
+                }
+            }
+        },
+        {
+            "ApplicationArn": "arn:aws:elasticbeanstalk:us-east-1:977684303906:application/node-js-sample",
+            "ApplicationName": "node-js-sample",
+            "DateCreated": "2025-08-18T14:41:12.501000+00:00",
+            "DateUpdated": "2025-08-18T14:41:12.501000+00:00",
+            "ConfigurationTemplates": [],
+            "ResourceLifecycleConfig": {
+                "VersionLifecycleConfig": {
+                    "MaxCountRule": {
+                        "Enabled": false,
+                        "MaxCount": 200,
+                        "DeleteSourceFromS3": false
+                    },
+                    "MaxAgeRule": {
+                        "Enabled": false,
+                        "MaxAgeInDays": 180,
+                        "DeleteSourceFromS3": false
+                    }
+                }
+            }
+        }
+    ]
+}
