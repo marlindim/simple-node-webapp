@@ -3,7 +3,7 @@ name: CI/CD Pipeline
 on:
   push:
     branches:
-      - master
+      - main
 
 jobs:
   deploy:
@@ -16,7 +16,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: '20'
 
       - name: Install dependencies
         run: npm install
@@ -41,7 +41,7 @@ jobs:
           AWS_DEFAULT_REGION: us-east-1
           PATH: ${{ env.PATH }}:$HOME/.local/bin
         run: |
-          eb init your-app-name --platform node.js --region us-east-1
-          eb use your-env-name
+          eb init simple-node-app --platform node.js --region us-east-1
+          eb use simple-node-env
           eb deploy
 
