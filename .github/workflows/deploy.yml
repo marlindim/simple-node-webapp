@@ -3,26 +3,21 @@ name: Deploy to Elastic Beanstalk
 on:
   push:
     branches:
-      - main   # or your deploy branch
+      - main   # deploy branch
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
+      - name: Checkout code
         uses: actions/checkout@v3
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
 
       - name: Install dependencies
         run: npm install
 
-      - name: Zip application
-        run: zip -r app.zip . -x "*.git*"
+      - name: Zip application (without node_modules)
+        run: zip -r app.zip . -x "*.git*" -x "node_modules/*"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -31,18 +26,18 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Upload to S3
+      - name: Upload app.zip to S3
         run: |
           aws s3 cp app.zip s3://elasticbeanstalk-${{ secrets.AWS_REGION }}-${{ secrets.AWS_ACCOUNT_ID }}/app.zip
-          aws s3 ls s3://elasticbeanstalk-${{ secrets.AWS_REGION }}-${{ secrets.AWS_ACCOUNT_ID }}/app.zip
 
-      - name: Store current environment version (for rollback)
-        id: get-current-version
+      - name: Get current EB version
+        id: current_version
         run: |
           CURRENT_VERSION=$(aws elasticbeanstalk describe-environments \
             --environment-names "${{ secrets.EB_ENV_NAME }}" \
             --query "Environments[0].VersionLabel" --output text)
           echo "CURRENT_VERSION=$CURRENT_VERSION" >> $GITHUB_ENV
+          echo "Current EB version: $CURRENT_VERSION"
 
       - name: Create new EB application version
         run: |
@@ -51,16 +46,17 @@ jobs:
             --version-label "v-${{ github.run_number }}" \
             --source-bundle S3Bucket="elasticbeanstalk-${{ secrets.AWS_REGION }}-${{ secrets.AWS_ACCOUNT_ID }}",S3Key="app.zip"
 
-      - name: Deploy to EB environment
+      - name: Deploy new version to EB environment
         run: |
-          set -e
-          if ! aws elasticbeanstalk update-environment \
+          aws elasticbeanstalk update-environment \
             --environment-name "${{ secrets.EB_ENV_NAME }}" \
-            --version-label "v-${{ github.run_number }}"; then
-              echo "❌ Deployment failed! Rolling back..."
-              aws elasticbeanstalk update-environment \
-                --environment-name "${{ secrets.EB_ENV_NAME }}" \
-                --version-label "${{ env.CURRENT_VERSION }}"
-              exit 1
-          fi
+            --version-label "v-${{ github.run_number }}"
+
+      - name: Rollback if deploy fails (optional)
+        if: failure()
+        run: |
+          echo "Deployment failed! Rolling back to $CURRENT_VERSION"
+          aws elasticbeanstalk update-environment \
+            --environment-name "${{ secrets.EB_ENV_NAME }}" \
+            --version-label "$CURRENT_VERSION"
 
