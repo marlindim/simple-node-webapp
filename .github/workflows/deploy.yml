@@ -1,75 +1,66 @@
-name: Deploy Node.js to Elastic Beanstalk
+name: Deploy to Elastic Beanstalk
 
 on:
   push:
     branches:
-      - main   # change to 'master' if that’s your default branch
+      - main   # or your deploy branch
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout Code
         uses: actions/checkout@v3
 
-      - name: Set up Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 16
+          node-version: '18'
 
       - name: Install dependencies
         run: npm install
 
-      - name: Package app
-        run: zip -r app.zip . -x '*.git*'
+      - name: Zip application
+        run: zip -r app.zip . -x "*.git*"
 
-      - name: Get Node.js version from package.json
-        id: node_version
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Upload to S3
         run: |
-          VERSION=$(jq -r '.engines.node' package.json)
-          VERSION_CLEAN=${VERSION#\^}
-          VERSION_CLEAN=${VERSION_CLEAN#\~}
-          echo "NODE_VERSION=$VERSION_CLEAN" >> $GITHUB_ENV
-          echo "Node.js version from package.json: $VERSION_CLEAN"
+          aws s3 cp app.zip s3://elasticbeanstalk-${{ secrets.AWS_REGION }}-${{ secrets.AWS_ACCOUNT_ID }}/app.zip
+          aws s3 ls s3://elasticbeanstalk-${{ secrets.AWS_REGION }}-${{ secrets.AWS_ACCOUNT_ID }}/app.zip
 
-      - name: Deploy to Elastic Beanstalk
-        env:
-          AWS_REGION: ${{ secrets.AWS_REGION }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          EB_APPLICATION_NAME: ${{ secrets.EB_APPLICATION_NAME }}
-          EB_ENVIRONMENT_NAME: ${{ secrets.EB_ENVIRONMENT_NAME }}
-          NODE_VERSION: ${{ env.NODE_VERSION }}
+      - name: Store current environment version (for rollback)
+        id: get-current-version
         run: |
-          VERSION_LABEL="v-${{ github.run_number }}"
-          echo "Deploying version: $VERSION_LABEL to environment: $EB_ENVIRONMENT_NAME"
+          CURRENT_VERSION=$(aws elasticbeanstalk describe-environments \
+            --environment-names "${{ secrets.EB_ENV_NAME }}" \
+            --query "Environments[0].VersionLabel" --output text)
+          echo "CURRENT_VERSION=$CURRENT_VERSION" >> $GITHUB_ENV
 
-          # Configure AWS CLI
-          aws configure set region $AWS_REGION
-          aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
-          aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
-
-          # Check if environment exists
-          ENV_CHECK=$(aws elasticbeanstalk describe-environments \
-            --application-name "$EB_APPLICATION_NAME" \
-            --environment-names "$EB_ENVIRONMENT_NAME" \
-            --query "Environments[0].EnvironmentName" \
-            --output text)
-
-          if [ "$ENV_CHECK" = "None" ] || [ -z "$ENV_CHECK" ]; then
-            echo "Environment $EB_ENVIRONMENT_NAME does not exist. Please create it first using 'eb create'."
-            exit 1
-          fi
-
-          # Create new application version
+      - name: Create new EB application version
+        run: |
           aws elasticbeanstalk create-application-version \
-            --application-name "$EB_APPLICATION_NAME" \
-            --version-label "$VERSION_LABEL" \
-            --source-bundle S3Bucket="elasticbeanstalk-$AWS_REGION-$AWS_ACCOUNT_ID",S3Key="app.zip" || true
+            --application-name "${{ secrets.EB_APP_NAME }}" \
+            --version-label "v-${{ github.run_number }}" \
+            --source-bundle S3Bucket="elasticbeanstalk-${{ secrets.AWS_REGION }}-${{ secrets.AWS_ACCOUNT_ID }}",S3Key="app.zip"
 
-          # Update environment to new version
-          aws elasticbeanstalk update-environment \
-            --environment-name "$EB_ENVIRONMENT_NAME" \
-            --version-label "$VERSION_LABEL"
+      - name: Deploy to EB environment
+        run: |
+          set -e
+          if ! aws elasticbeanstalk update-environment \
+            --environment-name "${{ secrets.EB_ENV_NAME }}" \
+            --version-label "v-${{ github.run_number }}"; then
+              echo "❌ Deployment failed! Rolling back..."
+              aws elasticbeanstalk update-environment \
+                --environment-name "${{ secrets.EB_ENV_NAME }}" \
+                --version-label "${{ env.CURRENT_VERSION }}"
+              exit 1
+          fi
 
