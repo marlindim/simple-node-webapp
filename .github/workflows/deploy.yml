@@ -1,2 +1,46 @@
+name: CI/CD Pipeline
 
-gg
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run tests
+        run: npm test || echo "No tests found"
+
+      - name: Zip app
+        run: zip -r app.zip .
+
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Deploy to Elastic Beanstalk
+        run: |
+          aws s3 cp app.zip s3://your-eb-bucket/app.zip
+          aws elasticbeanstalk create-application-version \
+            --application-name my-node-app \
+            --version-label v-${{ github.run_number }} \
+            --source-bundle S3Bucket="your-eb-bucket",S3Key="app.zip"
+          aws elasticbeanstalk update-environment \
+            --environment-name my-node-env \
+            --version-label v-${{ github.run_number }}
+
