@@ -7,10 +7,20 @@
     "start": "node index.js"
   },
   "dependencies": {
-    "express": "^4.18.2"
+    "express": "^4.21.2"
   },
   "engines": {
     "node": "22.x"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marlindim/simple-node-webapp.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/marlindim/simple-node-webapp/issues"
+  },
+  "homepage": "https://github.com/marlindim/simple-node-webapp#readme"
 }
-
