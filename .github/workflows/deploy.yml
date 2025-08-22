@@ -1,31 +1,38 @@
-name: CI/CD Pipeline
+name: Node.js CI/CD to Elastic Beanstalk
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      # Step 1: Checkout the repository
+      - name: Checkout repository
         uses: actions/checkout@v3
 
+      # Step 2: Set up Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: '18'  # or your Node version
 
+      # Step 3: Install dependencies
       - name: Install dependencies
         run: npm install
 
+      # Step 4: Run tests (optional)
       - name: Run tests
-        run: npm test || echo "No tests found"
+        run: npm test
 
-      - name: Zip app
-        run: zip -r app.zip .
+      # Step 5: Zip the application
+      - name: Zip application
+        run: zip -r app.zip . -x "*.git*" -x "node_modules/*"
 
+      # Step 6: Configure AWS credentials
       - name: Configure AWS
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -33,13 +40,15 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
+      # Step 7: Deploy to Elastic Beanstalk
       - name: Deploy to Elastic Beanstalk
         run: |
-          aws s3 cp app.zip s3://your-eb-bucket/app.zip
+          aws --version
+          aws s3 cp app.zip s3://my-eb-bucket/app.zip
           aws elasticbeanstalk create-application-version \
             --application-name my-node-app \
             --version-label v-${{ github.run_number }} \
-            --source-bundle S3Bucket="your-eb-bucket",S3Key="app.zip"
+            --source-bundle S3Bucket="my-eb-bucket",S3Key="app.zip"
           aws elasticbeanstalk update-environment \
             --environment-name my-node-env \
             --version-label v-${{ github.run_number }}
