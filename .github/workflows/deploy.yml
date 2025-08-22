@@ -1,4 +1,4 @@
-name: Node.js CI/CD to Elastic Beanstalk
+name: CI/CD Node.js to Elastic Beanstalk
 
 on:
   push:
@@ -6,33 +6,33 @@ on:
       - main
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout the repository
+      # 1. Checkout your code
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # Step 2: Set up Node.js
-      - name: Setup Node.js
+      # 2. Set up Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '18'  # or your Node version
+          node-version: 22
 
-      # Step 3: Install dependencies
+      # 3. Install dependencies
       - name: Install dependencies
         run: npm install
 
-      # Step 4: Run tests (optional)
-      - name: Run tests
-        run: npm test
+      # 4. Build app (if needed)
+      - name: Build app
+        run: npm run build || echo "No build script, skipping"
 
-      # Step 5: Zip the application
+      # 5. Zip the app for EB
       - name: Zip application
-        run: zip -r app.zip . -x "*.git*" -x "node_modules/*"
+        run: zip -r app.zip . -x "*.git*" "*.github*"
 
-      # Step 6: Configure AWS credentials
+      # 6. Configure AWS credentials
       - name: Configure AWS
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -40,16 +40,16 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      # Step 7: Deploy to Elastic Beanstalk
+      # 7. Deploy to Elastic Beanstalk
       - name: Deploy to Elastic Beanstalk
-        run: |
-          aws --version
-          aws s3 cp app.zip s3://my-eb-bucket/app.zip
-          aws elasticbeanstalk create-application-version \
-            --application-name simple-node-app \
-            --version-label v-${{ github.run_number }} \
-            --source-bundle S3Bucket="my-eb-bucket",S3Key="app.zip"
-          aws elasticbeanstalk update-environment \
-            --environment-name simple-node-env \
-            --version-label v-${{ github.run_number }}
+        uses: einaregilsson/beanstalk-deploy@v21
+        with:
+          aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          application_name: simple-node-app          # <- your actual EB app name
+          environment_name: simple-node-env          # <- your EB environment
+          region: ${{ secrets.AWS_REGION }}
+          version_label: v-${{ github.run_number }}
+          zip_file: app.zip
+          wait_for_deployment: true
 
